@@ -3,7 +3,10 @@ import scipy
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from sklearn.cluster import SpectralClustering
 from sklearn.semi_supervised import label_propagation
+from sklearn.semi_supervised import LabelPropagation
+from sklearn.semi_supervised import LabelSpreading
 from sklearn.metrics import confusion_matrix, classification_report
 
 
@@ -42,12 +45,25 @@ y_train[list(unlabeled_set)] = -1
 for seed in seeds:
     y_train[seed[0]] = seed[1]
 
-lp_model = label_propagation.LabelSpreading(gamma=0.25)
+#lp_model = label_propagation.LabelSpreading(gamma=0.25)
+lp_model = LabelSpreading()
 lp_model.fit(data, y_train)
 predicted_labels = lp_model.predict(data)
 #predicted_labels = lp_model.transduction_[list(unlabeled_set)]
 #preds = predicted_labels[5940:9941]
 preds = predicted_labels[6000:]
 
+simscores = np.genfromtxt('Graph.csv', delimiter=',', dtype=(int, int))
+similarity_matrix = [[10 for _ in range(10000)] for _ in range(10000)]
+for sim in simscores:
+    id1 = int(sim[0])
+    id2 = int(sim[1])
+    similarity_matrix[id1][id2] = 0.5
+
+
+
+sc_model = SpectralClustering(n_clusters=10, kernel_params={"metric":"precomputed"}, affinity=similarity_matrix)
+predicted_labels = sc_model.fit_predict(data)
+preds = predicted_labels[6000:]
 
 np.savetxt('output2.csv',np.column_stack((id,preds)),delimiter=',', header="Id,Label", fmt='%s', comments='')
