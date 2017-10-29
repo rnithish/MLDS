@@ -8,12 +8,13 @@ from sklearn.semi_supervised import label_propagation
 from sklearn.semi_supervised import LabelPropagation
 from sklearn.semi_supervised import LabelSpreading
 from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.svm import SVC
 
 
 seeds = np.genfromtxt('Seed.csv', delimiter=',', dtype=(int, int))
 sorted(seeds, key = lambda x: x[1])
 
-labeled_indices = [seed[0] for seed in seeds]
+labeled_indices = [seed[0]-1 for seed in seeds]
 labeled_set = set(labeled_indices)
 indices = set(np.arange(0,10000))
 unlabeled_set = indices - labeled_set
@@ -43,7 +44,7 @@ id = [i for i in range(6001,10001)]
 y_train = np.arange(0,10000)
 y_train[list(unlabeled_set)] = -1
 for seed in seeds:
-    y_train[seed[0]] = seed[1]
+    y_train[seed[0]-1] = seed[1]
 
 #lp_model = label_propagation.LabelSpreading(gamma=0.25)
 lp_model = LabelSpreading()
@@ -54,16 +55,25 @@ predicted_labels = lp_model.predict(data)
 preds = predicted_labels[6000:]
 
 simscores = np.genfromtxt('Graph.csv', delimiter=',', dtype=(int, int))
-similarity_matrix = [[10 for _ in range(10000)] for _ in range(10000)]
+#similarity_matrix = [[10 for _ in range(10000)] for _ in range(10000)]
 for sim in simscores:
-    id1 = int(sim[0])
-    id2 = int(sim[1])
-    similarity_matrix[id1][id2] = 0.5
+    id1 = int(sim[0]-1)
+    id2 = int(sim[1]-1)
+    #similarity_matrix[id1][id2] = 0.5
+    if(id1 in labeled_set):
+        y_train[id2] = y_train[id1]
+    elif(id2 in labeled_set):
+        y_train[id1] = y_train[id2]
 
+posindices = y_train > -1
+y_train = y_train[posindices]
+train_data = data[posindices]
+svm = SVC()
+svm.fit(train_data, posindices)
+preds = svm.predict(data[6000:])
 
-
-sc_model = SpectralClustering(n_clusters=10, kernel_params={"metric":"precomputed"}, affinity=similarity_matrix)
-predicted_labels = sc_model.fit_predict(data)
-preds = predicted_labels[6000:]
+# sc_model = SpectralClustering(n_clusters=10, kernel_params={"metric":"precomputed"}, affinity=similarity_matrix)
+# predicted_labels = sc_model.fit_predict(data)
+# preds = predicted_labels[6000:]
 
 np.savetxt('output2.csv',np.column_stack((id,preds)),delimiter=',', header="Id,Label", fmt='%s', comments='')
